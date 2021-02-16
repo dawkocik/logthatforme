@@ -4,30 +4,22 @@ import {
     Client,
     ArgsOf
 } from "@typeit/discord"
-import { Message, TextChannel } from "discord.js";
+import { GuildChannel, Message, TextChannel } from "discord.js";
 import path from "path"
 import { Telegraf } from "telegraf"
 
 
 const chars: { [key: string]: string } = { '<': '&lt;', '>': '&gt;', '&': '&amp;' }
 
-// Message.prototype.attachments.toString = (): string => {
-//     let result = ""
-//     if (typeof this !== "undefined") {
-//         (this as unknown as Message).attachments.forEach((a) => {
-//             result = `${result}\n${a}`
-//         })
-//     }
-//     return result
-// }
-
 @Discord()
 export class DiscordLog {
     private static client: Client
     private static telegram: Telegraf;
+    private static telegramID: number
 
     static start(telegram: Telegraf, config: any) {
         this.telegram = telegram;
+        this.telegramID = config.telegramID
         this.client = new Client()
         this.client.login(
             config.tokens.discord,
@@ -39,19 +31,42 @@ export class DiscordLog {
     async onMessage([message]: ArgsOf<"message">) {
         if (message.author.id !== DiscordLog.client.user?.id) {
             const textChannel = message.channel as TextChannel
+
+            let attachments = ""
+            message.attachments.forEach((a) => {
+                attachments += a.url + "\n"
+            })
+
             DiscordLog.telegram.telegram.sendMessage(1597000853,
                 `💬 ${getTime()}\n` +
                 `<b>${message.author.tag}</b> <code>(${message.author.id})</code>\n` +
                 `⮡  <b>${textChannel.guild.name}</b> <code>(${textChannel.guild.id})</code>\n` +
-                `    ⮡  <b>&#35;${textChannel.name}</b> <code>(${textChannel.id})</code>\n\n` +
-                `${message.content.replace(/[<>&]/g, c => chars[c])}` + 
-                `<code>(${message.id})</code>`, { parse_mode: 'HTML' }
+                `    ⮡  <b>${textChannel.name}</b> <code>(${textChannel.id})</code>\n\n` +
+                `${message.content.replace(/[<>&]/g, c => chars[c])}` +
+                `<code>(${message.id})</code>\n` +
+                `${attachments}`, { parse_mode: 'HTML' }
             );
         }
     }
+
+    @On("channelCreate")
+    async onChannelCreate([channel]: ArgsOf<"channelCreate">) {
+        const guildChannel = channel as GuildChannel
+        const log = (await guildChannel.guild.fetchAuditLogs({
+            limit: 1,
+            type: 'CHANNEL_CREATE'
+        })).entries.first()
+        
+        DiscordLog.telegram.telegram.sendMessage(DiscordLog.telegramID,
+            `🆕📁 ${getTime()}\n` +
+            `<b>${log?.executor.tag}</b> <code>(${log?.executor.id})</code>\n` + 
+            `⮡  <b>${guildChannel.guild.name}</b> <code>(${guildChannel.guild.id})</code>\n` +
+            `    ⮡  Created a new ${channel.type} channel\n` +
+            `        ⮡  <b>${guildChannel.name}</b> <code>${guildChannel.id}</code>`, { parse_mode: 'HTML' })
+    }
 }
 
-// [12:15:34 31.10.2001]
+// [hh:mm:ss dd.mm.yyyy]
 const getTime = (): string => {
     const now = new Date();
 
