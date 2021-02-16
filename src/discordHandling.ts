@@ -4,7 +4,7 @@ import {
     Client,
     ArgsOf
 } from "@typeit/discord"
-import { GuildChannel, Message, TextChannel } from "discord.js";
+import { GuildChannel, TextChannel } from "discord.js";
 import path from "path"
 import { Telegraf } from "telegraf"
 
